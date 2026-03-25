@@ -61,6 +61,8 @@ export async function convertChapters(
           `-ss`, String(chapter.startTime),
         ])
         .outputOptions([
+          // Always overwrite output files to avoid ffmpeg prompting on existing files
+          '-y',
           '-vn',
           '-codec:a', 'aac',
           `-b:a`, `${bitrate}k`,
@@ -68,6 +70,12 @@ export async function convertChapters(
           '-t', String(chapter.duration),
         ])
         .output(outputPath)
+        // Log ffmpeg stderr lines to help diagnose hangs/errors in deployed environments
+        .on('stderr', (line) => {
+          // Keep the message concise so logs are useful without being noisy
+          // eslint-disable-next-line no-console
+          console.error(`[ffmpeg] ${line}`);
+        })
         .on('progress', (p) => {
           // p.percent is relative to the full input file duration, not this chapter.
           // Derive within-chapter percent from timemark instead.
