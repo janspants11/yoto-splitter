@@ -45,6 +45,9 @@ export async function convertChapters(
 ): Promise<string[]> {
   const { inputPath, chapters, bitrate, outputDir, signal } = options;
 
+  // eslint-disable-next-line no-console
+  console.error(`[converter] Starting conversion: ${chapters.length} chapters, ${bitrate}kbps, codec=${options.audioCodec || 'auto-detect'}`);
+
   fs.mkdirSync(outputDir, { recursive: true });
 
   // Auto-detect best codec if not explicitly specified
@@ -66,6 +69,8 @@ export async function convertChapters(
   }
 
   const outputPaths: string[] = [];
+  // eslint-disable-next-line no-console
+  console.error(`[converter] Conversion parameters: ${chapters.length} chapters, bitrate=${bitrate}kbps, codec=${audioCodec}, outputDir=${outputDir}`);
 
   for (const chapter of chapters) {
     const paddedIndex = (chapter.index + 1).toString().padStart(3, '0');
@@ -75,9 +80,14 @@ export async function convertChapters(
     const outputFilename = `${paddedIndex} - ${safeTitle}.${fileExtension}`;
     const outputPath = path.join(outputDir, outputFilename);
 
+    // eslint-disable-next-line no-console
+    console.error(`[converter] Starting chapter ${chapter.index}: "${chapter.title}" (${chapter.duration.toFixed(2)}s)`);
     callbacks.onChapterStart?.(chapter.index, chapter.title);
 
     await new Promise<void>((resolve, reject) => {
+      // eslint-disable-next-line no-console
+      console.error(`[converter] Creating ffmpeg command for chapter ${chapter.index}, output: ${outputPath}`);
+      
       const command = ffmpeg(inputPath)
         .inputOptions([
           `-ss`, String(chapter.startTime),
@@ -99,7 +109,7 @@ export async function convertChapters(
         .on('stderr', (line) => {
           // Keep the message concise so logs are useful without being noisy
           // eslint-disable-next-line no-console
-          console.error(`[ffmpeg] ${line}`);
+          console.error(`[ffmpeg:${chapter.index}] ${line}`);
         })
         .on('progress', (p) => {
           // p.percent is relative to the full input file duration, not this chapter.
@@ -115,6 +125,8 @@ export async function convertChapters(
           });
         })
         .on('end', () => {
+          // eslint-disable-next-line no-console
+          console.error(`[converter] ffmpeg end event received for chapter ${chapter.index}`);
           if (signal) {
             signal.removeEventListener('abort', onAbort);
           }
@@ -122,14 +134,26 @@ export async function convertChapters(
           resolve();
         })
         .on('error', (err) => {
+          // eslint-disable-next-line no-console
+          console.error(`[converter] ffmpeg error for chapter ${chapter.index}: ${(err as Error).message}`);
           callbacks.onError?.(chapter.index, err as Error);
           clearTimeout(timeoutHandle);
           reject(err);
+        })
+        .on('close', (code, signal) => {
+          // eslint-disable-next-line no-console
+          console.error(`[converter] ffmpeg close event for chapter ${chapter.index}: code=${code}, signal=${signal}`);
+        })
+        .on('exit', (code, signal) => {
+          // eslint-disable-next-line no-console
+          console.error(`[converter] ffmpeg exit event for chapter ${chapter.index}: code=${code}, signal=${signal}`);
         });
 
       // Set a timeout to detect hanging processes
       // Each chapter could be large, use generous 30min timeout per chapter
       const timeoutHandle = setTimeout(() => {
+        // eslint-disable-next-line no-console
+        console.error(`[converter] Timeout reached for chapter ${chapter.index}, killing ffmpeg`);
         reject(new Error(`ffmpeg encoding timed out after 30 minutes for chapter ${chapter.index}`));
         try {
           command.kill('SIGKILL');
@@ -142,11 +166,15 @@ export async function convertChapters(
 
       if (signal) {
         onAbort = () => {
+          // eslint-disable-next-line no-console
+          console.error(`[converter] Abort signal received for chapter ${chapter.index}`);
           command.kill('SIGKILL');
           clearTimeout(timeoutHandle);
           reject(new Error('Conversion cancelled'));
         };
         if (signal.aborted) {
+          // eslint-disable-next-line no-console
+          console.error(`[converter] Signal already aborted at start of chapter ${chapter.index}`);
           clearTimeout(timeoutHandle);
           reject(new Error('Conversion cancelled'));
           return;
@@ -154,14 +182,23 @@ export async function convertChapters(
         signal.addEventListener('abort', onAbort, { once: true });
       }
 
+      // eslint-disable-next-line no-console
+      console.error(`[converter] Running ffmpeg command for chapter ${chapter.index}`);
       command.run();
     });
+
+    // eslint-disable-next-line no-console
+    console.error(`[converter] ffmpeg promise resolved for chapter ${chapter.index}, checking output file`);
 
     let stats: fs.Stats;
     try {
       stats = fs.statSync(outputPath);
+      // eslint-disable-next-line no-console
+      console.error(`[converter] Chapter ${chapter.index} output file confirmed: ${outputPath} (${stats.size} bytes)`);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
+      // eslint-disable-next-line no-console
+      console.error(`[converter] Failed to stat output file for chapter ${chapter.index}: ${error.message}`);
       callbacks.onError?.(chapter.index, error);
       throw error;
     }
