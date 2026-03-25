@@ -1,0 +1,29 @@
+services:
+  frontend:
+    image: git.billyjanssen.dev/janspants/yoto-splitter/frontend:latest
+    ports:
+      - "3002:80"
+    depends_on:
+      - backend
+
+  backend:
+    image: git.billyjanssen.dev/janspants/yoto-splitter/backend:latest
+    ports:
+      - "4001:4000"
+    volumes:
+      - yoto-data:/data
+      - ${WATCH_DIR:-./watch}:/data/watch
+    environment:
+      - AUTH_MODE=${AUTH_MODE:-none}
+      - BASIC_USER=${BASIC_USER:-}
+      - BASIC_PASS=${BASIC_PASS:-}
+      - WATCH_DIR=/data/watch
+      - WATCH_BITRATE=${WATCH_BITRATE:-48}
+      - NTFY_URL=${NTFY_URL:-}
+      - NTFY_TOPIC=${NTFY_TOPIC:-yoto-splitter}
+      - DATA_DIR=/data
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=4000
+
+volumes:
+  yoto-data:

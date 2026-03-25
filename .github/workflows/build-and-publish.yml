@@ -1,0 +1,49 @@
+name: Build and publish Docker images
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  REGISTRY: registry.example.com
+  BACKEND_IMAGE: registry.example.com/username/yoto-splitter/backend
+  FRONTEND_IMAGE: registry.example.com/username/yoto-splitter/frontend
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker registry
+        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login $REGISTRY -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+
+      - name: Build and push backend
+        run: |
+          docker build -t "$BACKEND_IMAGE:latest" -t "$BACKEND_IMAGE:$GITHUB_SHA" "./backend"
+          docker push "$BACKEND_IMAGE:latest"
+          docker push "$BACKEND_IMAGE:$GITHUB_SHA"
+
+      - name: Build and push frontend
+        run: |
+          docker build -t "$FRONTEND_IMAGE:latest" -t "$FRONTEND_IMAGE:$GITHUB_SHA" "./frontend"
+          docker push "$FRONTEND_IMAGE:latest"
+          docker push "$FRONTEND_IMAGE:$GITHUB_SHA"
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker registry
+        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login $REGISTRY -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+
+      - name: Deploy to production
+        run: |
+          # Add your deployment steps here
+          # Example: SSH to server and run docker compose commands
+          echo "Deploy to your hosting platform"
