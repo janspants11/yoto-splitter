@@ -39,6 +39,9 @@ export class Worker extends EventEmitter {
 
   cancelCurrent(): boolean {
     if (!this.abortController) return false;
+    // eslint-disable-next-line no-console
+    console.error(`[Worker] ABORT REQUEST: cancelling current job`);
+    console.trace('[Worker] cancelCurrent called from:');
     this.abortController.abort();
     return true;
   }
