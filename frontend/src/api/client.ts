@@ -77,6 +77,11 @@ export interface UploadResponse {
     totalSize: number;
     originalBitrate: number;
   };
+  audio: {
+    codec: string;
+    hasDRM: boolean;
+    recommendedCodec: 'aac' | 'libmp3lame';
+  };
   estimates: SizeEstimate[];
 }
 
@@ -150,8 +155,9 @@ export const api = {
   convertJob: (
     id: string,
     bitrate: number,
+    codec: 'aac' | 'libmp3lame',
   ): Promise<{ queued: boolean; position: number }> =>
-    post(`/jobs/${id}/convert`, { bitrate }),
+    post(`/jobs/${id}/convert`, { bitrate, codec }),
 
   testEncode: (id: string, bitrate: number): Promise<TestEncodeResult> =>
     post(`/jobs/${id}/test-encode`, { bitrate }),

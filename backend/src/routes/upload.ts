@@ -95,6 +95,11 @@ export function createUploadRouter(db: Database.Database) {
           totalSize: probeResult.totalSize,
           originalBitrate: probeResult.originalBitrate,
         },
+        audio: {
+          codec: probeResult.audioCodec,
+          hasDRM: probeResult.hasDRM,
+          recommendedCodec: probeResult.recommendedCodec,
+        },
         estimates,
       });
     } catch (err) {

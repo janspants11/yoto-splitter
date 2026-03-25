@@ -1,5 +1,5 @@
 app = "yoto-splitter"
-primary_region = "ord"  # Chicago - change to your preferred region
+primary_region = "iad"  # Ashburn, VA
 
 [build]
   dockerfile = "Dockerfile.fly"
@@ -31,8 +31,8 @@ primary_region = "ord"  # Chicago - change to your preferred region
 
 # Resource configuration
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
+  memory = '2gb'
+  cpu_kind = 'performance'
   cpus = 1
 
 # Restart policy is handled automatically by Fly.io

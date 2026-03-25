@@ -11,9 +11,12 @@ export interface Chapter {
 
 export interface ProbeResult {
   chapters: Chapter[];
-  totalDuration: number;  // seconds
-  totalSize: number;      // bytes
+  totalDuration: number;   // seconds
+  totalSize: number;       // bytes
   originalBitrate: number; // kbps
+  hasDRM: boolean;
+  audioCodec: string;
+  recommendedCodec: 'aac' | 'libmp3lame';
 }
 
 export interface SizeEstimate {
@@ -31,6 +34,7 @@ export interface Job {
   zipPath?: string;
   status: JobStatus;
   bitrate?: number;  // kbps, set when user initiates conversion
+  codec?: 'aac' | 'libmp3lame';  // output codec, set when user initiates conversion
   totalDuration?: number;
   totalSize?: number;
   outputSize?: number;

@@ -39,6 +39,9 @@ export class Worker extends EventEmitter {
 
   cancelCurrent(): boolean {
     if (!this.abortController) return false;
+    // eslint-disable-next-line no-console
+    console.error(`[Worker] ABORT REQUEST: cancelling current job`);
+    console.trace('[Worker] cancelCurrent called from:');
     this.abortController.abort();
     return true;
   }
@@ -103,6 +106,7 @@ export class Worker extends EventEmitter {
       updateJob(this.db, jobId, { outputDir });
 
       const bitrate = job.bitrate ?? 64;
+      const audioCodec = job.codec ?? undefined;
       const totalChapters = chapters.length;
       let chaptersComplete = 0;
 
@@ -114,6 +118,7 @@ export class Worker extends EventEmitter {
           bitrate,
           outputDir,
           signal: ac.signal,
+          audioCodec,
         },
         {
           onChapterProgress: (progress) => {
