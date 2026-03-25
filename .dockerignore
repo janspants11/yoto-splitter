@@ -1,0 +1,58 @@
+# Git and version control
+.git
+.gitignore
+
+# Development files
+.env*
+.vscode
+.idea
+*.log
+npm-debug.log*
+
+# Dependencies (will be installed in container)
+node_modules
+.npm
+.pnpm-store
+
+# Build artifacts (will be built in container)
+dist
+build
+
+# Test files
+coverage
+*.test.js
+*.spec.js
+__tests__
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Deployment files
+docker-compose*.yml
+Dockerfile
+Dockerfile.*
+!Dockerfile.fly
+
+# OS files  
+.DS_Store
+Thumbs.db
+
+# IDE files
+*.swp
+*.swo
+*~
+
+# Runtime files
+*.pid
+*.seed
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Screenshots and test artifacts
+*.png
+session-cleanup-test.png

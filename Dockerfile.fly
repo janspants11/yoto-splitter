@@ -1,0 +1,81 @@
+# Multi-stage build for Fly.io deployment
+# Combines backend and frontend into a single container with nginx proxy
+
+# Stage 1: Build Frontend
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Build Backend
+FROM node:20-alpine AS backend-builder  
+WORKDIR /app/backend
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++ 
+COPY backend/package*.json ./
+RUN npm ci
+COPY backend/ ./
+RUN npm run build
+
+# Stage 3: Production Runtime
+FROM node:20-alpine AS production
+
+# Install nginx, ffmpeg and build dependencies for native modules
+RUN apk add --no-cache nginx ffmpeg python3 make g++
+
+# Create app user and directories
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    mkdir -p /data /app /var/log/nginx /var/lib/nginx/tmp && \
+    chown -R nodejs:nodejs /data /app
+
+# Copy backend build
+WORKDIR /app
+COPY --from=backend-builder --chown=nodejs:nodejs /app/backend/dist ./backend/
+COPY --from=backend-builder --chown=nodejs:nodejs /app/backend/package.json ./
+COPY --from=backend-builder --chown=nodejs:nodejs /app/backend/package-lock.json ./
+
+# Install production dependencies and rebuild native modules for Alpine
+RUN npm ci --only=production && \
+    npm rebuild better-sqlite3
+
+# Copy frontend build to nginx serve directory
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/
+COPY nginx.fly.conf /etc/nginx/nginx.conf
+
+# Environment variables
+ENV NODE_ENV=production \
+    PORT=4000 \
+    DATA_DIR=/data \
+    AUTH_MODE=none
+
+# Create startup script - run everything as root for simplicity
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'set -e' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Create nginx temp directories' >> /app/start.sh && \
+    echo 'mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp /tmp/nginx_uwsgi_temp /tmp/nginx_scgi_temp' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Start nginx in background' >> /app/start.sh && \
+    echo 'nginx -g "daemon off;" &' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Give nginx a moment to start' >> /app/start.sh && \
+    echo 'sleep 2' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Start backend' >> /app/start.sh && \
+    echo 'cd /app' >> /app/start.sh && \
+    echo 'exec node backend/index.js' >> /app/start.sh
+
+RUN chmod +x /app/start.sh
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost/api/health || exit 1
+
+EXPOSE 80
+
+# Override the entrypoint to avoid user account issues
+ENTRYPOINT []
+CMD ["/bin/sh", "/app/start.sh"]

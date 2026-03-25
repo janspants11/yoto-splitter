@@ -1,0 +1,39 @@
+app = "yoto-splitter"
+primary_region = "ord"  # Chicago - change to your preferred region
+
+[build]
+  dockerfile = "Dockerfile.fly"
+
+[[mounts]]
+  source = "yoto_data"
+  destination = "/data"
+
+[env]
+  NODE_ENV = "production"
+  AUTH_MODE = "none"
+  DATA_DIR = "/data"
+  PORT = "4000"
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  max_machines_running = 2
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/health"
+
+# Resource configuration
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+# Restart policy is handled automatically by Fly.io
+# max_retries and restart behavior are configured via process groups if needed

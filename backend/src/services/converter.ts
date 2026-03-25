@@ -63,6 +63,8 @@ export async function convertChapters(
         .outputOptions([
           // Always overwrite output files to avoid ffmpeg prompting on existing files
           '-y',
+          // Enable verbose logging to diagnose encoding failures
+          '-loglevel', 'verbose',
           '-vn',
           '-codec:a', 'aac',
           `-b:a`, `${bitrate}k`,
@@ -75,6 +77,14 @@ export async function convertChapters(
           // Keep the message concise so logs are useful without being noisy
           // eslint-disable-next-line no-console
           console.error(`[ffmpeg] ${line}`);
+        })
+        .on('close', (code, signal) => {
+          // Fire when ffmpeg process exits (even on error or cancellation)
+          // eslint-disable-next-line no-console
+          console.error(`[ffmpeg] Process closed with code ${code}, signal ${signal}`);
+          if (code !== 0 && code !== null) {
+            reject(new Error(`ffmpeg exited with code ${code}`));
+          }
         })
         .on('progress', (p) => {
           // p.percent is relative to the full input file duration, not this chapter.
