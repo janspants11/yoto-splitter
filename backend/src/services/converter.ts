@@ -139,14 +139,6 @@ export async function convertChapters(
           callbacks.onError?.(chapter.index, err as Error);
           clearTimeout(timeoutHandle);
           reject(err);
-        })
-        .on('close', (code, signal) => {
-          // eslint-disable-next-line no-console
-          console.error(`[converter] ffmpeg close event for chapter ${chapter.index}: code=${code}, signal=${signal}`);
-        })
-        .on('exit', (code, signal) => {
-          // eslint-disable-next-line no-console
-          console.error(`[converter] ffmpeg exit event for chapter ${chapter.index}: code=${code}, signal=${signal}`);
         });
 
       // Set a timeout to detect hanging processes
