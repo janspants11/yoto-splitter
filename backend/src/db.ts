@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   zip_path       TEXT,
   status         TEXT NOT NULL DEFAULT 'pending',
   bitrate        INTEGER,
+  codec          TEXT,
   total_duration REAL,
   total_size     INTEGER,
   output_size    INTEGER,
@@ -38,6 +39,7 @@ interface JobRow {
   zip_path: string | null;
   status: string;
   bitrate: number | null;
+  codec: string | null;
   total_duration: number | null;
   total_size: number | null;
   output_size: number | null;
@@ -60,6 +62,7 @@ function rowToJob(row: JobRow): Job {
     zipPath: row.zip_path ?? undefined,
     status: row.status as JobStatus,
     bitrate: row.bitrate ?? undefined,
+    codec: (row.codec ?? undefined) as Job['codec'],
     totalDuration: row.total_duration ?? undefined,
     totalSize: row.total_size ?? undefined,
     outputSize: row.output_size ?? undefined,
@@ -98,6 +101,9 @@ function runMigrations(db: Database.Database): void {
   if (!cols.includes('expires_at')) {
     db.exec("ALTER TABLE jobs ADD COLUMN expires_at TEXT");
     db.exec("UPDATE jobs SET expires_at = datetime('now', '+24 hours') WHERE expires_at IS NULL");
+  }
+  if (!cols.includes('codec')) {
+    db.exec("ALTER TABLE jobs ADD COLUMN codec TEXT");
   }
   // Always ensure these indexes exist (covers both fresh installs and migrations)
   db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_session_id ON jobs(session_id)");
@@ -159,6 +165,7 @@ export function updateJob(db: Database.Database, id: string, updates: Partial<{
   outputDir: string;
   zipPath: string;
   bitrate: number;
+  codec: 'aac' | 'libmp3lame';
   totalDuration: number;
   totalSize: number;
   outputSize: number;
@@ -171,6 +178,7 @@ export function updateJob(db: Database.Database, id: string, updates: Partial<{
     outputDir: 'output_dir',
     zipPath: 'zip_path',
     bitrate: 'bitrate',
+    codec: 'codec',
     totalDuration: 'total_duration',
     totalSize: 'total_size',
     outputSize: 'output_size',

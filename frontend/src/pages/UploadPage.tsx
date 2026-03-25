@@ -4,6 +4,8 @@ import ChapterList from '../components/ChapterList';
 import BitrateTable from '../components/BitrateTable';
 import ProgressDisplay from '../components/ProgressDisplay';
 import { api, Chapter, SizeEstimate, UploadResponse } from '../api/client';
+
+type AudioCodec = 'aac' | 'libmp3lame';
 import { useSSE } from '../hooks/useSSE';
 import { useConversionState } from '../context/ConversionContext';
 
@@ -82,6 +84,8 @@ export default function UploadPage() {
   const [estimates, setEstimates] = useState<SizeEstimate[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [selectedBitrate, setSelectedBitrate] = useState(48);
+  const [selectedCodec, setSelectedCodec] = useState<AudioCodec>('aac');
+  const [hasDRM, setHasDRM] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortUploadRef = useRef<(() => void) | null>(null);
   const { setConverting } = useConversionState();
@@ -138,6 +142,8 @@ export default function UploadPage() {
       setChapters(res.chapters);
       setEstimates(res.estimates);
       setSelectedBitrate(48);
+      setSelectedCodec(res.audio?.recommendedCodec ?? 'aac');
+      setHasDRM(res.audio?.hasDRM ?? false);
       setTestResult(null);
       setStage('ready');
     } catch (err) {
@@ -152,12 +158,12 @@ export default function UploadPage() {
     if (!jobId) return;
     setError(null);
     try {
-      await api.convertJob(jobId, selectedBitrate);
+      await api.convertJob(jobId, selectedBitrate, selectedCodec);
       setStage('converting');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start conversion');
     }
-  }, [jobId, selectedBitrate]);
+  }, [jobId, selectedBitrate, selectedCodec]);
 
   const handleTestEncode = useCallback(
     async (bitrate: number) => {
@@ -195,6 +201,8 @@ export default function UploadPage() {
     setEstimates([]);
     setError(null);
     setTestResult(null);
+    setHasDRM(false);
+    setSelectedCodec('aac');
   };
 
   const handleDownload = () => {
@@ -252,6 +260,39 @@ export default function UploadPage() {
             />
           </section>
 
+          {/* Codec selector */}
+          <div className="space-y-2">
+            {hasDRM && (
+              <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-amber/10 border border-amber/30">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="mt-0.5 flex-shrink-0 text-amber">
+                  <path d="M8 2L14.5 13H1.5L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                  <path d="M8 6v3.5M8 11v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <p className="font-mono text-xs text-amber/90">
+                  DRM detected — MP3 recommended to avoid transcoding timeouts
+                </p>
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <span className="font-body text-sm text-cream/50">Output codec</span>
+              <div className="flex rounded-md border border-forest-600 overflow-hidden">
+                {(['aac', 'libmp3lame'] as AudioCodec[]).map((codec) => (
+                  <button
+                    key={codec}
+                    onClick={() => setSelectedCodec(codec)}
+                    className={`px-3 py-1.5 font-mono text-xs transition-colors cursor-pointer ${
+                      selectedCodec === codec
+                        ? 'bg-amber text-forest-900 font-bold'
+                        : 'text-cream/50 hover:text-cream hover:bg-forest-700/40'
+                    }`}
+                  >
+                    {codec === 'aac' ? 'AAC' : 'MP3'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-4">
             <button
               onClick={handleConvert}
@@ -287,6 +328,13 @@ export default function UploadPage() {
       {/* Stage: converting */}
       {stage === 'converting' && (
         <div className="space-y-6">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-forest-700/50 border border-forest-600">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 text-cream/40">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M8 5v3.5L10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <p className="font-mono text-xs text-cream/40">Keep this tab open — closing it will stop the conversion</p>
+          </div>
           <ProgressDisplay sse={sse} onCancel={handleCancel} />
           <ChapterList
             chapters={chapters}
@@ -327,7 +375,7 @@ export default function UploadPage() {
 
           <h3 className="font-display text-2xl">Conversion Complete</h3>
           <p className="font-mono text-sm text-cream/40">
-            {chapters.length} chapters at {selectedBitrate}k
+            {chapters.length} chapters · {selectedBitrate}k · {selectedCodec === 'aac' ? 'AAC' : 'MP3'}
           </p>
 
           <div className="flex items-center justify-center gap-4 pt-4">

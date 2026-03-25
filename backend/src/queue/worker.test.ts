@@ -28,6 +28,9 @@ const SAMPLE_PROBE: ProbeResult = {
   totalDuration: 120,
   totalSize: 1024 * 1024,
   originalBitrate: 128,
+  hasDRM: false,
+  audioCodec: 'aac',
+  recommendedCodec: 'aac',
 };
 
 describe('Worker', () => {

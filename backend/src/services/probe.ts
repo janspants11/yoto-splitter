@@ -2,6 +2,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import type { Chapter, ProbeResult } from '../types';
+export type { ProbeResult };
 import { sanitizeTitle } from '../utils/sanitize';
 
 const execFileAsync = promisify(execFile);
@@ -94,10 +95,15 @@ export async function probeFile(filePath: string): Promise<ProbeResult> {
     }];
   }
 
-  return { chapters, totalDuration, totalSize, originalBitrate };
+  // Find audio stream and detect DRM from the same probe data (no second ffprobe invocation needed)
+  const audioStream = data.streams?.find(s => s.codec_type === 'audio');
+  const audioCodec = audioStream?.codec_name ?? 'unknown';
+  const hasDRM = detectDRM(data);
+  const recommendedCodec: AudioCodec = hasDRM ? 'libmp3lame' : 'aac';
+
+  return { chapters, totalDuration, totalSize, originalBitrate, hasDRM, audioCodec, recommendedCodec };
 }
 
-/** Detect audio codec and DRM protection from file metadata */
 export async function detectAudioInfo(filePath: string): Promise<AudioInfo> {
   await fs.promises.access(filePath);
 

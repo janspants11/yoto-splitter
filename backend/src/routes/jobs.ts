@@ -44,7 +44,8 @@ export function createJobsRouter(db: Database.Database, queue: JobQueue, worker:
     }
 
     const bitrate = req.body.bitrate ?? 48;
-    updateJob(db, job.id, { status: 'queued', bitrate });
+    const codec = req.body.codec === 'libmp3lame' ? 'libmp3lame' : 'aac';
+    updateJob(db, job.id, { status: 'queued', bitrate, codec });
     queue.enqueue(job.id);
 
     return res.json({ queued: true, position: queue.getPosition(job.id) });

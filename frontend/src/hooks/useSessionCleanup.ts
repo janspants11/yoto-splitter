@@ -37,7 +37,7 @@ export function useSessionCleanup(isConverting: boolean): void {
     }
 
     function handleVisibilityChange(): void {
-      if (document.visibilityState === 'hidden') {
+      if (document.visibilityState === 'hidden' && !isConvertingRef.current) {
         api.beaconDeleteSession();
       }
     }
