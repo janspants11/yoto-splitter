@@ -50,7 +50,9 @@ export async function convertChapters(
   for (const chapter of chapters) {
     const paddedIndex = (chapter.index + 1).toString().padStart(3, '0');
     const safeTitle = sanitizeTitle(chapter.title);
-    const outputFilename = `${paddedIndex} - ${safeTitle}.m4a`;
+    // Use .mp3 extension since we're encoding to MP3 (libmp3lame) instead of M4A
+    // This avoids DRM encoding issues present with AAC on protected audio files
+    const outputFilename = `${paddedIndex} - ${safeTitle}.mp3`;
     const outputPath = path.join(outputDir, outputFilename);
 
     callbacks.onChapterStart?.(chapter.index, chapter.title);
@@ -66,7 +68,10 @@ export async function convertChapters(
           // Enable verbose logging to diagnose encoding failures
           '-loglevel', 'verbose',
           '-vn',
-          '-codec:a', 'aac',
+          // Use libmp3lame (MP3) instead of AAC to avoid DRM encoding issues
+          // AAC encoder fails silently on DRM-protected audio (e.g., Audible files)
+          // MP3 doesn't have these restrictions and works reliably across all sources
+          '-codec:a', 'libmp3lame',
           `-b:a`, `${bitrate}k`,
           '-ac', '1',
           '-t', String(chapter.duration),
