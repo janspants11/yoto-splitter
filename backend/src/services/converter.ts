@@ -78,14 +78,6 @@ export async function convertChapters(
           // eslint-disable-next-line no-console
           console.error(`[ffmpeg] ${line}`);
         })
-        .on('close', (code, signal) => {
-          // Fire when ffmpeg process exits (even on error or cancellation)
-          // eslint-disable-next-line no-console
-          console.error(`[ffmpeg] Process closed with code ${code}, signal ${signal}`);
-          if (code !== 0 && code !== null) {
-            reject(new Error(`ffmpeg exited with code ${code}`));
-          }
-        })
         .on('progress', (p) => {
           // p.percent is relative to the full input file duration, not this chapter.
           // Derive within-chapter percent from timemark instead.
@@ -103,21 +95,36 @@ export async function convertChapters(
           if (signal) {
             signal.removeEventListener('abort', onAbort);
           }
+          clearTimeout(timeoutHandle);
           resolve();
         })
         .on('error', (err) => {
           callbacks.onError?.(chapter.index, err as Error);
+          clearTimeout(timeoutHandle);
           reject(err);
         });
+
+      // Set a timeout to detect hanging processes
+      // Each chapter could be large, use generous 30min timeout per chapter
+      const timeoutHandle = setTimeout(() => {
+        reject(new Error(`ffmpeg encoding timed out after 30 minutes for chapter ${chapter.index}`));
+        try {
+          command.kill('SIGKILL');
+        } catch {
+          // ignore
+        }
+      }, 30 * 60 * 1000);
 
       let onAbort: () => void;
 
       if (signal) {
         onAbort = () => {
           command.kill('SIGKILL');
+          clearTimeout(timeoutHandle);
           reject(new Error('Conversion cancelled'));
         };
         if (signal.aborted) {
+          clearTimeout(timeoutHandle);
           reject(new Error('Conversion cancelled'));
           return;
         }
