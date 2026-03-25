@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import type { Chapter } from '../types';
 import { sanitizeTitle } from '../utils/sanitize';
+import { detectAudioInfo, type AudioCodec } from './probe';
 
 export interface ConvertOptions {
   inputPath: string;
@@ -10,6 +11,7 @@ export interface ConvertOptions {
   bitrate: number;  // kbps
   outputDir: string;
   signal?: AbortSignal;
+  audioCodec?: AudioCodec;  // optional override, auto-detected if not specified
 }
 
 export interface ChapterProgress {
@@ -45,14 +47,32 @@ export async function convertChapters(
 
   fs.mkdirSync(outputDir, { recursive: true });
 
+  // Auto-detect best codec if not explicitly specified
+  let audioCodec = options.audioCodec;
+  let hasDRM = false;
+  if (!audioCodec) {
+    try {
+      const audioInfo = await detectAudioInfo(inputPath);
+      audioCodec = audioInfo.recommendedCodec;
+      hasDRM = audioInfo.hasDRM;
+      // eslint-disable-next-line no-console
+      console.error(`[converter] Detected codec: ${audioInfo.codec}, DRM: ${hasDRM}, using: ${audioCodec}`);
+    } catch (err) {
+      // If detection fails, default to MP3 (safer fallback)
+      audioCodec = 'libmp3lame';
+      // eslint-disable-next-line no-console
+      console.error(`[converter] Failed to detect audio info, defaulting to MP3: ${err}`);
+    }
+  }
+
   const outputPaths: string[] = [];
 
   for (const chapter of chapters) {
     const paddedIndex = (chapter.index + 1).toString().padStart(3, '0');
     const safeTitle = sanitizeTitle(chapter.title);
-    // Use .mp3 extension since we're encoding to MP3 (libmp3lame) instead of M4A
-    // This avoids DRM encoding issues present with AAC on protected audio files
-    const outputFilename = `${paddedIndex} - ${safeTitle}.mp3`;
+    // Use file extension based on selected codec
+    const fileExtension = audioCodec === 'aac' ? 'mp4' : 'mp3';
+    const outputFilename = `${paddedIndex} - ${safeTitle}.${fileExtension}`;
     const outputPath = path.join(outputDir, outputFilename);
 
     callbacks.onChapterStart?.(chapter.index, chapter.title);
@@ -68,10 +88,8 @@ export async function convertChapters(
           // Enable verbose logging to diagnose encoding failures
           '-loglevel', 'verbose',
           '-vn',
-          // Use libmp3lame (MP3) instead of AAC to avoid DRM encoding issues
-          // AAC encoder fails silently on DRM-protected audio (e.g., Audible files)
-          // MP3 doesn't have these restrictions and works reliably across all sources
-          '-codec:a', 'libmp3lame',
+          // Dynamically select codec based on DRM detection
+          '-codec:a', audioCodec,
           `-b:a`, `${bitrate}k`,
           '-ac', '1',
           '-t', String(chapter.duration),
